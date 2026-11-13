@@ -1,0 +1,215 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>EduPilot Invoice Generator</title><link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#1E4A86"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Invoice"><link rel="apple-touch-icon" href="icon-192.png"><link rel="icon" href="icon-192.png">
+<link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<script>tailwind.config={theme:{extend:{colors:{navy:'#1E4A86',char:'#24272B'}}}}</script>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#F3F4F6;--sf:#fff;--tx:#24272B;--mu:#6B7280;--bd:#E5E7EB;--bd2:#D1D5DB;--ac:#1E4A86;--sub:#F9FAFB}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#15181C;--sf:#1D2126;--tx:#E8EAED;--mu:#9AA3AD;--bd:#2D333A;--bd2:#3B434C;--ac:#8DB4EA;--sub:#23282E;color-scheme:dark}}
+:root[data-theme=dark]{--bg:#15181C;--sf:#1D2126;--tx:#E8EAED;--mu:#9AA3AD;--bd:#2D333A;--bd2:#3B434C;--ac:#8DB4EA;--sub:#23282E;color-scheme:dark}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:'Hind Siliguri',system-ui,sans-serif}
+.card{background:var(--sf);border:1px solid var(--bd);border-radius:6px}
+.in{width:100%;background:var(--sf);color:var(--tx);border:1px solid var(--bd2);border-radius:4px;padding:7px 10px;font-size:14px}
+.in:focus,.btn:focus-visible{outline:2px solid #1E4A86;outline-offset:1px}
+.lbl{display:block;font-size:13px;font-weight:500;margin-bottom:3px}
+.mu{color:var(--mu)}.ac{color:var(--ac)}
+.btn{border:1px solid var(--bd2);background:var(--sf);color:var(--tx);border-radius:4px;padding:7px 13px;font-size:14px;font-weight:500;cursor:pointer}
+.btn:hover{background:var(--sub)}
+.btn-p{background:#1E4A86;color:#fff;border-color:#1E4A86}.btn-p:hover{background:#173b6c}
+.err{color:#C0392B;font-size:12px;margin-top:2px}
+.lk{background:none;border:0;color:var(--ac);font-size:13px;cursor:pointer;padding:2px 6px;font-weight:500}.lk:hover{text-decoration:underline}
+@media(max-width:640px){.in{font-size:16px}.btn{padding:10px 14px}.lk{padding:9px 8px}}
+.in{min-width:0}input[type=date].in{min-height:40px}body{overflow-x:hidden}
+@media print{#app>*:not(#printhost){display:none!important}@page{size:A4;margin:0}}
+</style></head><body><div id="root"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/htm@3.1.1/dist/htm.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+const {useState,useEffect,useRef}=React;const html=htm.bind(React.createElement);
+const ls={get:(k,d)=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set:(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+let BRAND=Object.assign({name:"EduPilot",tagline:"School Management Software",account:""},ls.get("edu_brand",{}));
+const pad=n=>String(n).padStart(2,'0');
+const iso=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+const D=s=>new Date(s+'T00:00:00');
+const addY=(s,n)=>{const d=D(s);d.setFullYear(d.getFullYear()+n);return d};
+const addD=(d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return x};
+const uid=()=>Math.random().toString(36).slice(2,9);
+const genNo=()=>{const d=new Date();return 'EDU-'+d.getFullYear()+'-'+pad(d.getMonth()+1)+pad(d.getDate())+'-'+String(Math.floor(Math.random()*9000)+1000)};
+const fd=s=>s?D(s).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}):'—';
+const fmy=s=>s?D(s).toLocaleDateString('en-GB',{month:'short',year:'numeric'}):'—';
+const fmyl=s=>s?D(s).toLocaleDateString('en-GB',{month:'long',year:'numeric'}):'—';
+const money=n=>'৳'+Number(n||0).toLocaleString('en-IN',{maximumFractionDigits:2});
+const dur=t=>{if(!t.start||!t.end||t.end<t.start)return '—';const days=Math.round((D(t.end)-D(t.start))/864e5)+1;const m=Math.round(days/30.44);return m>=1?m+(m===1?' month':' months'):days+' days'};
+const T=['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
+const TY=['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+const two=n=>n<20?T[n]:TY[Math.floor(n/10)]+(n%10?' '+T[n%10]:'');
+const three=n=>(n>=100?T[Math.floor(n/100)]+' Hundred'+(n%100?' ':''):'')+two(n%100);
+const words=n=>{n=Math.round(n);if(!n)return 'Zero';const p=[],cr=Math.floor(n/1e7),la=Math.floor(n%1e7/1e5),th=Math.floor(n%1e5/1e3),h=n%1e3;if(cr)p.push(three(cr)+' Crore');if(la)p.push(two(la)+' Lakh');if(th)p.push(two(th)+' Thousand');if(h)p.push(three(h));return p.join(' ')};
+const today=()=>iso(new Date());
+const newInv=(o)=>{const t=today();return{id:uid(),no:genNo(),school:{name:'',address:'',contact:'',phone:'',email:''},date:t,due:'',next:iso(addY(t,1)),items:[{id:uid(),desc:'EduPilot School Management Software – Annual Service Charge',start:t,end:iso(addD(addY(t,1),-1)),amt:2000}],discount:0,paid:0,status:'Due',method:BRAND.account,txn:'',notes:'Payment is due within 15 days of the invoice date. This invoice covers the service period shown above.',person:'',...o}};
+const renew=i=>newInv({school:{...i.school},items:i.items.map(t=>({...t,id:uid(),start:iso(addY(t.start,1)),end:iso(addY(t.end,1))})),next:iso(addY(i.next,1)),discount:i.discount,method:i.method,notes:i.notes,person:i.person});
+const calc=i=>{const sub=i.items.reduce((a,t)=>a+(Number(t.amt)||0),0);const disc=Math.min(Math.max(Number(i.discount)||0,0),sub);const total=sub-disc;const paid=i.status==='Paid'?total:i.status==='Partial'?Math.min(Math.max(Number(i.paid)||0,0),total):0;return{sub,disc,total,paid,due:total-paid}};
+const span=i=>{const s=i.items.map(t=>t.start).sort()[0],e=i.items.map(t=>t.end).sort().pop();return fmy(s)+' – '+fmy(e)};
+const validate=i=>{const e={};if(!i.school.name.trim())e.name='Enter the school name';if(!i.next)e.next='Choose the next billing date';if(!i.no.trim())e.no='Invoice number is required';
+i.items.forEach(t=>{const m=[];if(!t.desc.trim())m.push('Add a service description');if(!(Number(t.amt)>0))m.push('Enter an amount above 0');if(!t.start||!t.end)m.push('Choose both period dates');else if(t.end<t.start)m.push('End date must be after the start date');if(m.length)e[t.id]=m.join('. ')});
+if(i.school.email&&!/^\S+@\S+\.\S+$/.test(i.school.email))e.email='Enter a valid email address';
+if(i.due&&i.due<i.date)e.due='Due date is before the invoice date';
+if(Number(i.discount)>calc(i).sub)e.disc='Discount is more than the subtotal';return e};
+const fname=i=>(BRAND.name.trim().replace(/[^\w\u0980-\u09FF]+/g,'_')||'Invoice')+'_Invoice_'+(i.school.name.trim().replace(/[^\w\u0980-\u09FF]+/g,'_')||'School')+'_'+i.no+'.pdf';
+async function makePdf(el,name){const c=await html2canvas(el,{scale:2,backgroundColor:'#fff',useCORS:true});const pdf=new jspdf.jsPDF('p','mm','a4');let w=210,h=c.height*w/c.width;if(h>297){w=w*297/h;h=297}pdf.addImage(c.toDataURL('image/jpeg',0.95),'JPEG',(210-w)/2,0,w,h);pdf.save(name)}
+
+function Logo({src,size}){return src?html`<img src=${src} alt="EduPilot logo" style=${{height:size,maxWidth:size*2.2,objectFit:'contain'}}/>`:html`<svg width=${size} height=${size} viewBox="0 0 40 40" role="img" aria-label="EduPilot logo"><rect width="40" height="40" rx="8" fill="#1E4A86"/><path d="M8 21 L33 8 L26 33 L20 23 Z" fill="#fff"/><path d="M20 23 L33 8" stroke="#1E4A86" stroke-width="1.5"/></svg>`}
+function Icon({n}){const c={fill:'none',stroke:'currentColor',strokeWidth:1.8,strokeLinecap:'round',strokeLinejoin:'round'};return html`<svg width="22" height="22" viewBox="0 0 24 24" ...${c} aria-hidden="true">${n==='dash'?html`<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="14" width="7" height="7"/>`:n==='inv'?html`<path d="M6 2h9l5 5v15H6zM14 2v6h6M9 13h8M9 17h8"/>`:html`<path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/>`}</svg>`}
+const TABS=[['dash','Dashboard'],['inv','Invoice'],['set','Settings']];
+function Field({label,err,children,req}){return html`<div><label className="lbl">${label}${req&&html`<span className="text-red-600"> *</span>`}</label>${children}${err&&html`<div className="err">${err}</div>`}</div>`}
+function Modal({children,onClose,wide}){return html`<div className="fixed inset-0 z-50 flex items-center justify-center p-3" style=${{background:'rgba(0,0,0,.5)'}} onClick=${onClose}><div className="card p-4 w-full overflow-auto" style=${{maxWidth:wide?860:400,maxHeight:'92vh'}} onClick=${e=>e.stopPropagation()}>${children}</div></div>`}
+function Fit({children}){const r=useRef();const [z,setZ]=useState(1);useEffect(()=>{const f=()=>setZ(Math.min(1,r.current.clientWidth/794));f();const o=new ResizeObserver(f);o.observe(r.current);return()=>o.disconnect()},[]);return html`<div ref=${r} className="w-full" style=${{overflow:'hidden',minWidth:0,maxWidth:'100%'}}><div style=${{zoom:z,width:794}}>${children}</div></div>`}
+
+function Invoice({inv,id,logo}){const c=calc(inv),sc=inv.school,N='#1E4A86',B='1px solid #cfd4da';
+const row=(a,b,bold,col)=>html`<div className="flex justify-between py-1" style=${{fontWeight:bold?700:400,color:col||'inherit',borderTop:bold?'1px solid #24272B':'none'}}><span>${a}</span><span>${b}</span></div>`;
+return html`<div id=${id} className="p-10 flex flex-col" style=${{width:794,minHeight:1123,background:'#fff',color:'#24272B',fontSize:13,lineHeight:1.45,fontFamily:"'Hind Siliguri',sans-serif"}}>
+<div className="flex justify-between items-start pb-4" style=${{borderBottom:'3px solid '+N}}>
+<div className="flex items-center gap-3"><${Logo} src=${logo} size=${56}/><div><div style=${{fontSize:22,fontWeight:700,color:N}}>${BRAND.name}</div><div>${BRAND.tagline}</div></div></div>
+<div className="text-right"><div style=${{fontSize:26,fontWeight:700,color:N}}>BILL / INVOICE</div><div>Invoice No: <b>${inv.no}</b></div><div>Invoice Date: <b>${fd(inv.date)}</b></div>${inv.due&&html`<div>Payment Due: <b>${fd(inv.due)}</b></div>`}</div></div>
+<div className="mt-5"><div style=${{color:N,fontWeight:700}}>Bill To</div><div style=${{fontSize:17,fontWeight:700}}>${sc.name||'School name'}</div>
+${sc.address&&html`<div>${sc.address}</div>`}${sc.contact&&html`<div>Attn: ${sc.contact}</div>`}${(sc.phone||sc.email)&&html`<div>${[sc.phone,sc.email].filter(Boolean).join('   |   ')}</div>`}</div>
+<table className="mt-5 w-full" style=${{borderCollapse:'collapse',border:B}}><thead><tr style=${{background:N,color:'#fff',textAlign:'left'}}><th className="p-2">Description</th><th className="p-2">Service Period</th><th className="p-2 text-right">Amount</th></tr></thead><tbody>
+${inv.items.map(t=>html`<tr key=${t.id} style=${{borderTop:B,verticalAlign:'top'}}><td className="p-2">${t.desc||'—'}</td><td className="p-2" style=${{whiteSpace:'nowrap'}}>${fmy(t.start)} – ${fmy(t.end)}<div style=${{fontSize:11,color:'#6B7280'}}>${dur(t)}</div></td><td className="p-2 text-right">${money(t.amt)}</td></tr>`)}</tbody></table>
+<div className="flex justify-between gap-6 mt-4"><div style=${{flex:1}}><div style=${{color:N,fontWeight:700}}>Amount in words</div><div>Taka ${words(c.total)} Only.</div></div>
+<div style=${{width:270}}>${row('Subtotal',money(c.sub))}${c.disc>0&&row('Discount','− '+money(c.disc))}${row('Total Payable',money(c.total),true)}${row('Paid Amount',money(c.paid))}${row('Due Amount',money(c.due),true,c.due>0?'#B42318':'#1E4A86')}</div></div>
+<div className="mt-5 p-3 flex justify-between items-center" style=${{background:N,color:'#fff',borderRadius:4}}><span style=${{fontSize:15,fontWeight:600}}>Next Billing Date</span><span style=${{fontSize:18,fontWeight:700}}>${fmyl(inv.next)} <span style=${{fontSize:12,fontWeight:400}}>(${fd(inv.next)})</span></span></div>
+<div className="mt-5" style=${{fontSize:12}}><div><b>Payment Status:</b> ${inv.status}${inv.txn&&html`<span>   <b className="ml-3">Transaction ID:</b> ${inv.txn}</span>`}</div>${inv.method&&html`<div className="mt-2"><b>Payment Method / Account</b><div style=${{whiteSpace:'pre-wrap'}}>${inv.method}</div></div>`}
+${inv.notes&&html`<div className="mt-2"><b>Terms & Conditions</b><div style=${{whiteSpace:'pre-wrap'}}>${inv.notes}</div></div>`}</div>
+<div className="mt-auto pt-16"><div className="flex justify-between gap-10 text-center" style=${{fontSize:12}}><div style=${{flex:1,borderTop:'1px solid #24272B',paddingTop:4}}>Received By</div><div style=${{flex:1,borderTop:'1px solid #24272B',paddingTop:4}}>Authorized Signature – ${BRAND.name}${inv.person&&html`<div><b>${inv.person}</b></div>`}</div></div>
+<div className="text-center mt-8" style=${{color:N,fontWeight:600}}>Thank you for choosing ${BRAND.name}.</div></div></div>`}
+
+function App(){
+const [logo,setLogo]=useState(()=>ls.get('edu_logo',''));
+const [brand,setBrand]=useState(BRAND);BRAND=brand;const [tab,setTab]=useState('dash'),[pane,setPane]=useState('edit');const go=(t,p)=>{setTab(t);if(p)setPane(p);window.scrollTo(0,0)};
+const sb=(k,v)=>{const b={...brand,[k]:v};BRAND=b;setBrand(b);ls.set('edu_brand',b)};
+const [list,setList]=useState(()=>ls.get('edu_invoices',[]));
+const [inv,setInv]=useState(()=>ls.get('edu_draft',null)||newInv());
+const [errs,setErrs]=useState({});const [q,setQ]=useState('');const [msg,setMsg]=useState('');
+const [dlg,setDlg]=useState(null);const [view,setView]=useState(null);const [pdfInv,setPdfInv]=useState(null);const [printInv,setPrintInv]=useState(null);
+const toast=m=>{setMsg(m);clearTimeout(window._t);window._t=setTimeout(()=>setMsg(''),2800)};
+useEffect(()=>{ls.set('edu_invoices',list)},[list]);
+useEffect(()=>{if(!pdfInv)return;(async()=>{try{await document.fonts.ready;await new Promise(r=>setTimeout(r,200));await makePdf(document.getElementById('pdfel'),fname(pdfInv));toast('PDF downloaded')}catch(e){toast('PDF failed: '+e.message)}setPdfInv(null)})()},[pdfInv]);
+useEffect(()=>{if(!printInv)return;const t=setTimeout(()=>{window.print();setPrintInv(null)},300);return()=>clearTimeout(t)},[printInv]);
+const setF=(k,v)=>setInv(p=>({...p,[k]:v}));
+const setS=(k,v)=>setInv(p=>({...p,school:{...p.school,[k]:v}}));
+const upd=(id,k,v)=>setInv(p=>{const items=p.items.map(t=>{if(t.id!==id)return t;const n={...t,[k]:v};if(k==='start'&&v)n.end=iso(addD(addY(v,1),-1));return n});const l=items[items.length-1];let next=p.next;if(l.id===id&&(k==='start'||k==='end')&&l.end)next=iso(addD(D(l.end),1));return{...p,items,next}});
+const addItem=()=>setInv(p=>({...p,items:[...p.items,{id:uid(),desc:'',start:today(),end:iso(addD(addY(today(),1),-1)),amt:''}]}));
+const delItem=id=>setInv(p=>({...p,items:p.items.length>1?p.items.filter(t=>t.id!==id):p.items}));
+const save=i=>setList(l=>l.some(a=>a.id===i.id)?l.map(a=>a.id===i.id?i:a):[i,...l]);
+const guard=()=>{const e=validate(inv);setErrs(e);if(Object.keys(e).length){toast('Fix the highlighted fields first');return false}return true};
+const toTop=id=>setTimeout(()=>{const el=document.getElementById(id);el&&el.scrollIntoView({behavior:'smooth'})},50);
+const gen=()=>{if(!guard())return;save(inv);ls.set('edu_draft',null);toast('Invoice saved to history');go('inv','prev')};
+const pdf=()=>{if(!guard())return;save(inv);setPdfInv(inv)};
+const prn=()=>{if(!guard())return;save(inv);setPrintInv(inv)};
+const draft=()=>{ls.set('edu_draft',inv);toast('Draft saved. It will reload when you reopen this page')};
+const reset=()=>setDlg({msg:'Clear the form and start a new invoice?',label:'Reset form',ok:()=>{setInv(newInv());setErrs({});ls.set('edu_draft',null);toast('Form reset')}});
+const edit=i=>{setInv(JSON.parse(JSON.stringify(i)));setErrs({});toast('Invoice loaded for editing');go('inv','edit')};
+const ren=i=>{setInv(renew(i));setErrs({});toast('New invoice created from '+i.school.name+'. Review and save it');go('inv','edit')};
+const del=i=>setDlg({msg:'Delete invoice '+i.no+' for '+i.school.name+'? This cannot be undone.',label:'Delete',ok:()=>{setList(l=>l.filter(a=>a.id!==i.id));toast('Invoice deleted')}});
+const pickSchool=n=>{const f=list.find(a=>a.school.name===n);if(f)setInv(p=>({...p,school:{...f.school}}))};
+const upLogo=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const s=Math.min(1,400/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=im.width*s;c.height=im.height*s;c.getContext('2d').drawImage(im,0,0,c.width,c.height);const u=c.toDataURL('image/png');setLogo(u);ls.set('edu_logo',u);toast('Logo updated')};im.src=r.result};r.readAsDataURL(f)};
+const exp=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify({list,brand,logo})],{type:'application/json'}));a.download='invoice-backup-'+today()+'.json';a.click();toast('Backup downloaded')};
+const imp=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(!Array.isArray(d.list))throw 0;setList(d.list);if(d.brand){BRAND={...BRAND,...d.brand};setBrand(BRAND);ls.set('edu_brand',BRAND)}if(d.logo!==undefined){setLogo(d.logo);ls.set('edu_logo',d.logo)}toast('Backup restored')}catch(x){toast('This is not a valid backup file')}};r.readAsText(f)};
+
+const key=i=>i.school.name.trim().toLowerCase();
+const latest={};list.forEach(i=>{const k=key(i);if(!latest[k]||i.date>latest[k].date)latest[k]=i});
+const days=i=>Math.round((D(i.next)-D(today()))/864e5);
+const flag=i=>{if(latest[key(i)]!==i)return '';const d=days(i);return d<0?'overdue':d<=60?'upcoming':''};
+const flagged=Object.values(latest).filter(i=>flag(i)).sort((a,b)=>a.next.localeCompare(b.next));
+const tot=list.reduce((a,i)=>{const c=calc(i);a.b+=c.total;a.p+=c.paid;a.d+=c.due;return a},{b:0,p:0,d:0});
+const stats=[['Total invoices',list.length],['Total schools',Object.keys(latest).length],['Total billed',money(tot.b)],['Total paid',money(tot.p)],['Total due',money(tot.d)],['Upcoming billing',flagged.filter(i=>flag(i)==='upcoming').length]];
+const filtered=list.filter(i=>(i.school.name+' '+i.no).toLowerCase().includes(q.toLowerCase()));
+const c=calc(inv);const schools=[...new Set(list.map(i=>i.school.name))];
+const badge=s=>({Paid:'#067647',Partial:'#B54708',Due:'#B42318'}[s]);
+const acts=i=>html`<button className="lk" onClick=${()=>setView(i)}>View</button><button className="lk" onClick=${()=>edit(i)}>Edit</button><button className="lk" onClick=${()=>setPdfInv(i)}>PDF</button><button className="lk" onClick=${()=>ren(i)}>Renew</button><button className="lk" style=${{color:'#C0392B'}} onClick=${()=>del(i)}>Delete</button>`;
+const Actions=()=>html`<div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2"><button className="btn btn-p col-span-2 sm:col-span-1" onClick=${gen}>Generate Invoice</button><button className="btn" onClick=${pdf}>Download PDF</button><button className="btn" onClick=${prn}>Print Invoice</button><button className="btn" onClick=${draft}>Save Draft</button><button className="btn" onClick=${reset}>Reset Form</button></div>`;
+
+return html`<div id="app">
+<header className="card" style=${{borderRadius:0,borderWidth:'0 0 1px'}}><div className="max-w-7xl mx-auto px-4 py-2 flex items-center justify-between gap-3">
+<div className="flex items-center gap-3 min-w-0"><${Logo} src=${logo} size=${36}/><div className="min-w-0"><div className="font-bold ac text-lg leading-tight truncate">${brand.name}</div><div className="mu text-xs truncate">Invoice Manager</div></div></div>
+<nav className="hidden lg:flex gap-2">${TABS.map(([k,l])=>html`<button key=${k} className=${'btn '+(tab===k?'btn-p':'')} onClick=${()=>go(k)}>${l}</button>`)}</nav></div></header>
+<main className="max-w-7xl mx-auto px-3 sm:px-4 pt-4 pb-40 lg:pb-5 space-y-4">
+${tab==='dash'&&html`<div className="space-y-4"><div className="flex items-center justify-between"><h1 className="text-xl font-bold">Dashboard</h1><button className="btn btn-p" onClick=${()=>{setInv(newInv());setErrs({});go('inv','edit')}}>+ New invoice</button></div>
+<section className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">${stats.map(([a,b])=>html`<div key=${a} className="card p-3"><div className="mu text-sm">${a}</div><div className="text-xl font-bold ac break-words">${b}</div></div>`)}</section>
+<section className="card p-4"><h2 className="font-bold mb-2">Billing reminders</h2>
+${flagged.length?html`<div className="space-y-2">${flagged.map(i=>html`<div key=${i.id} className="flex flex-wrap items-center justify-between gap-2 p-2 rounded" style=${{background:flag(i)==='overdue'?'rgba(180,35,24,.12)':'rgba(181,71,8,.12)'}}><div><b>${i.school.name}</b> <span className="mu">· next billing ${fd(i.next)}</span><div className="text-sm" style=${{color:flag(i)==='overdue'?'#B42318':'#B54708'}}>${flag(i)==='overdue'?'Overdue by '+Math.abs(days(i))+' days':'Due in '+days(i)+' days'}</div></div><button className="btn" onClick=${()=>ren(i)}>Create renewal invoice</button></div>`)}</div>`:html`<p className="mu text-sm">Nothing is due in the next 60 days. Schools with a billing date coming up will appear here.</p>`}</section>
+
+</div>`}
+${tab==='inv'&&html`<div className="space-y-4"><div className="flex items-center justify-between gap-2"><h1 className="text-xl font-bold">Invoice</h1><div className="flex gap-2"><button className="btn" onClick=${draft}>Save draft</button><button className="btn" onClick=${reset}>New</button></div></div>
+<div className="lg:hidden grid grid-cols-2 gap-1 p-1 card">${[['edit','Edit'],['prev','Preview']].map(([k,l])=>html`<button key=${k} className=${'btn '+(pane===k?'btn-p':'')} style=${{border:0}} onClick=${()=>{setPane(k);window.scrollTo(0,0)}}>${l}</button>`)}</div>
+<div className="grid gap-5 grid-cols-[minmax(0,1fr)] lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] items-start">
+<section id="form" className=${'card p-4 space-y-5 min-w-0 '+(pane==='edit'?'':'hidden lg:block')}>
+<div className="flex justify-between items-center"><h2 className="font-bold text-lg">Invoice details</h2>${list.some(a=>a.id===inv.id)&&html`<span className="mu text-sm">Editing saved invoice</span>`}</div>
+<fieldset className="space-y-3"><legend className="font-semibold ac mb-1">School</legend>
+${schools.length>0&&html`<${Field} label="Use a saved school"><select className="in" value="" onChange=${e=>pickSchool(e.target.value)}><option value="">Select a school to fill its details</option>${schools.map(s=>html`<option key=${s}>${s}</option>`)}</select><//>`}
+<${Field} label="School name" req err=${errs.name}><input className="in" value=${inv.school.name} onChange=${e=>setS('name',e.target.value)}/><//>
+<${Field} label="School address"><input className="in" value=${inv.school.address} onChange=${e=>setS('address',e.target.value)}/><//>
+<div className="grid sm:grid-cols-2 gap-3"><${Field} label="Contact person"><input className="in" value=${inv.school.contact} onChange=${e=>setS('contact',e.target.value)}/><//><${Field} label="Phone number"><input className="in" value=${inv.school.phone} onChange=${e=>setS('phone',e.target.value)}/><//></div>
+<${Field} label="Email address" err=${errs.email}><input className="in" type="email" value=${inv.school.email} onChange=${e=>setS('email',e.target.value)}/><//></fieldset>
+
+<fieldset className="space-y-3"><legend className="font-semibold ac mb-1">Billing</legend>
+<div className="grid sm:grid-cols-2 gap-3"><${Field} label="Invoice number" req err=${errs.no}><div className="flex gap-2"><input className="in" value=${inv.no} onChange=${e=>setF('no',e.target.value)}/><button type="button" className="btn" title="New number" onClick=${()=>setF('no',genNo())}>New</button></div><//>
+<${Field} label="Invoice date"><input className="in" type="date" value=${inv.date} onChange=${e=>setF('date',e.target.value)}/><//>
+<${Field} label="Payment due date" err=${errs.due}><input className="in" type="date" value=${inv.due} onChange=${e=>setF('due',e.target.value)}/><//>
+<${Field} label="Next billing date" req err=${errs.next}><input className="in" type="date" value=${inv.next} onChange=${e=>setF('next',e.target.value)}/><//></div></fieldset>
+
+<fieldset className="space-y-3"><legend className="font-semibold ac mb-1">Services</legend>
+${inv.items.map((t,n)=>html`<div key=${t.id} className="p-3 rounded space-y-2" style=${{background:'var(--sub)',border:'1px solid var(--bd)'}}>
+<div className="flex justify-between items-center"><b className="text-sm">Service ${n+1}</b>${inv.items.length>1&&html`<button className="lk" style=${{color:'#C0392B'}} onClick=${()=>delItem(t.id)}>Remove</button>`}</div>
+<${Field} label="Service name / description"><input className="in" value=${t.desc} onChange=${e=>upd(t.id,'desc',e.target.value)}/><//>
+<div className="grid grid-cols-2 gap-3"><${Field} label="Period start"><input className="in" type="date" value=${t.start} onChange=${e=>upd(t.id,'start',e.target.value)}/><//><${Field} label="Period end"><input className="in" type="date" value=${t.end} onChange=${e=>upd(t.id,'end',e.target.value)}/><//>
+<${Field} label="Duration"><div className="in" style=${{background:'transparent'}}>${dur(t)}</div><//><${Field} label="Amount (৳ BDT)"><input className="in" type="number" min="0" value=${t.amt} onChange=${e=>upd(t.id,'amt',e.target.value)}/><//></div>
+${errs[t.id]&&html`<div className="err">${errs[t.id]}</div>`}</div>`)}
+<button className="btn" onClick=${addItem}>+ Add service</button>
+<div className="grid sm:grid-cols-2 gap-3"><${Field} label="Discount (৳)" err=${errs.disc}><input className="in" type="number" min="0" value=${inv.discount} onChange=${e=>setF('discount',e.target.value)}/><//></div>
+<div className="text-sm p-3 rounded" style=${{background:'var(--sub)',border:'1px solid var(--bd)'}}><div className="flex justify-between"><span>Subtotal</span><b>${money(c.sub)}</b></div><div className="flex justify-between"><span>Total payable</span><b>${money(c.total)}</b></div><div className="flex justify-between"><span>Paid</span><b>${money(c.paid)}</b></div><div className="flex justify-between"><span>Due</span><b>${money(c.due)}</b></div><div className="mu mt-1">Taka ${words(c.total)} Only.</div></div></fieldset>
+
+<fieldset className="space-y-3"><legend className="font-semibold ac mb-1">Payment</legend>
+<div className="grid sm:grid-cols-2 gap-3"><${Field} label="Payment status"><select className="in" value=${inv.status} onChange=${e=>setF('status',e.target.value)}>${['Due','Paid','Partial'].map(s=>html`<option key=${s}>${s}</option>`)}</select><//>
+<div className="sm:col-span-2"><${Field} label="Payment method / account details"><textarea className="in" rows="3" placeholder="e.g. bKash (Personal): 01XXXXXXXXX" value=${inv.method} onChange=${e=>setF('method',e.target.value)}/><//></div>
+${inv.status==='Partial'&&html`<${Field} label="Paid amount (৳)"><input className="in" type="number" min="0" value=${inv.paid} onChange=${e=>setF('paid',e.target.value)}/><//>`}
+<${Field} label="Transaction ID"><input className="in" value=${inv.txn} onChange=${e=>setF('txn',e.target.value)}/><//></div></fieldset>
+
+<fieldset className="space-y-3"><legend className="font-semibold ac mb-1">Notes and signature</legend>
+<${Field} label="Notes / terms & conditions"><textarea className="in" rows="3" value=${inv.notes} onChange=${e=>setF('notes',e.target.value)}/><//>
+<${Field} label="Authorized person name"><input className="in" value=${inv.person} onChange=${e=>setF('person',e.target.value)}/><//>
+<p className="mu text-sm">Signature lines for the school and EduPilot are printed on the invoice for signing by hand.</p></fieldset>
+</section>
+
+<section id="preview" className=${'lg:sticky lg:top-3 space-y-3 min-w-0 '+(pane==='prev'?'':'hidden lg:block')}><div className="card p-3 hidden lg:block"><div className="font-semibold mb-2">Live invoice preview</div><${Actions}/></div>
+<div className="card p-2"><${Fit}><${Invoice} inv=${inv} id="pv" logo=${logo}/><//></div></section></div></div>`}
+
+${tab==='dash'&&html`<section className="card p-4"><div className="flex flex-wrap items-center justify-between gap-3 mb-3"><h2 className="font-bold text-lg">Invoice history</h2><input className="in" style=${{maxWidth:300}} placeholder="Search by school or invoice number" value=${q} onChange=${e=>setQ(e.target.value)} aria-label="Search invoices"/></div>
+<div className="overflow-x-auto hidden md:block"><table className="w-full text-sm" style=${{minWidth:900,borderCollapse:'collapse'}}><thead><tr className="text-left mu" style=${{borderBottom:'1px solid var(--bd)'}}>${['Invoice number','School','Invoice date','Service period','Total','Next billing','Status','Actions'].map(h=>html`<th key=${h} className="p-2 font-medium">${h}</th>`)}</tr></thead><tbody>
+${filtered.map(i=>{const f=flag(i);return html`<tr key=${i.id} style=${{borderBottom:'1px solid var(--bd)',background:f==='overdue'?'rgba(180,35,24,.1)':f==='upcoming'?'rgba(181,71,8,.1)':'transparent'}}>
+<td className="p-2 whitespace-nowrap">${i.no}</td><td className="p-2">${i.school.name}</td><td className="p-2 whitespace-nowrap">${fd(i.date)}</td><td className="p-2 whitespace-nowrap">${span(i)}</td><td className="p-2 whitespace-nowrap">${money(calc(i).total)}</td>
+<td className="p-2 whitespace-nowrap">${fd(i.next)}${f&&html`<div style=${{fontSize:11,fontWeight:600,color:f==='overdue'?'#B42318':'#B54708'}}>${f==='overdue'?'Overdue':'Upcoming'}</div>`}</td>
+<td className="p-2"><b style=${{color:badge(i.status)}}>${i.status}</b></td>
+<td className="p-2 whitespace-nowrap">${acts(i)}</td></tr>`})}</tbody></table></div>
+<div className="md:hidden space-y-3">${filtered.map(i=>{const f=flag(i);return html`<div key=${i.id} className="p-3 rounded" style=${{border:'1px solid var(--bd)',background:f==='overdue'?'rgba(180,35,24,.1)':f==='upcoming'?'rgba(181,71,8,.1)':'var(--sub)'}}><div className="flex justify-between gap-2"><b>${i.school.name}</b><b style=${{color:badge(i.status)}}>${i.status}</b></div><div className="mu text-sm">${i.no} · ${fd(i.date)}</div><div className="text-sm mt-1">${span(i)}</div><div className="flex justify-between text-sm mt-1"><b>${money(calc(i).total)}</b><span>Next: ${fd(i.next)}${f&&html` <b style=${{color:f==='overdue'?'#B42318':'#B54708'}}>${f==='overdue'?'Overdue':'Upcoming'}</b>`}</span></div><div className="flex flex-wrap mt-1" style=${{marginLeft:-8}}>${acts(i)}</div></div>`})}</div>
+${!filtered.length&&html`<p className="mu text-sm py-4 text-center">${list.length?'No invoices match your search.':'No invoices yet. Fill in the form and choose Generate Invoice to save your first one.'}</p>`}</section>`}
+${tab==='set'&&html`<div className="space-y-4 max-w-2xl"><h1 className="text-xl font-bold">Settings</h1>
+<section className="card p-4 space-y-3"><h2 className="font-semibold ac">Business</h2>
+<div><label className="lbl">Logo</label><div className="flex items-center gap-3"><${Logo} src=${logo} size=${48}/><label className="btn cursor-pointer">Upload logo<input type="file" accept="image/*" className="hidden" onChange=${upLogo}/></label>${logo&&html`<button className="btn" onClick=${()=>{setLogo('');ls.set('edu_logo','')}}>Remove</button>`}</div></div>
+<${Field} label="Business name"><input className="in" value=${brand.name} onChange=${e=>sb('name',e.target.value)}/><//>
+<${Field} label="Tagline (shown under the name on invoices)"><input className="in" value=${brand.tagline} onChange=${e=>sb('tagline',e.target.value)}/><//>
+<${Field} label="My payment account (fills every new invoice)"><textarea className="in" rows="3" placeholder="e.g. bKash (Personal): 01XXXXXXXXX" value=${brand.account} onChange=${e=>sb('account',e.target.value)}/><//>
+<p className="mu text-sm">Changes save automatically.</p></section>
+<section className="card p-4 space-y-3"><h2 className="font-semibold ac">Backup</h2><p className="mu text-sm">Your data is stored on this device only. Download a backup to restore it on another phone or after clearing browser data.</p><div className="flex flex-wrap gap-2"><button className="btn" onClick=${exp}>Download backup</button><label className="btn cursor-pointer">Restore backup<input type="file" accept=".json,application/json" className="hidden" onChange=${imp}/></label></div></section></div>`}</main>
+
+${view&&html`<${Modal} wide onClose=${()=>setView(null)}><div className="flex justify-between mb-3"><b>${view.no}</b><div className="flex gap-2"><button className="btn btn-p" onClick=${()=>setPdfInv(view)}>Download PDF</button><button className="btn" onClick=${()=>setView(null)}>Close</button></div></div><${Fit}><${Invoice} inv=${view} id="vw" logo=${logo}/><//><//>`}
+${dlg&&html`<${Modal} onClose=${()=>setDlg(null)}><p className="mb-4">${dlg.msg}</p><div className="flex justify-end gap-2"><button className="btn" onClick=${()=>setDlg(null)}>Cancel</button><button className="btn btn-p" style=${{background:'#B42318',borderColor:'#B42318'}} onClick=${()=>{dlg.ok();setDlg(null)}}>${dlg.label}</button></div><//>`}
+${tab==='inv'&&html`<div className="lg:hidden fixed inset-x-0 z-40 card flex gap-2 p-2" style=${{borderRadius:0,bottom:'calc(56px + env(safe-area-inset-bottom,0px))'}}><button className="btn btn-p flex-1" onClick=${gen}>Save invoice</button><button className="btn flex-1" onClick=${pdf}>PDF</button><button className="btn flex-1" onClick=${prn}>Print</button></div>`}
+<nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 card grid grid-cols-3" style=${{borderRadius:0,paddingBottom:'env(safe-area-inset-bottom,0px)'}}>${TABS.map(([k,l])=>html`<button key=${k} onClick=${()=>go(k)} className="flex flex-col items-center gap-0.5 py-2 text-xs font-medium" style=${{height:56,color:tab===k?'var(--ac)':'var(--mu)',background:'none',border:0}} aria-current=${tab===k?'page':undefined}><${Icon} n=${k}/>${l}</button>`)}</nav>
+${msg&&html`<div role="status" className="fixed left-1/2 bottom-36 lg:bottom-5 z-50 px-4 py-2 rounded text-sm text-white" style=${{transform:'translateX(-50%)',background:'#24272B',maxWidth:'90vw'}}>${msg}</div>`}
+${pdfInv&&html`<div style=${{position:'fixed',left:-10000,top:0}}><${Invoice} inv=${pdfInv} id="pdfel" logo=${logo}/></div>`}
+<div id="printhost" className="hidden print:block">${printInv&&html`<${Invoice} inv=${printInv} id="prn" logo=${logo}/>`}</div></div>`}
+ReactDOM.createRoot(document.getElementById('root')).render(html`<${App}/>`);
+</script><script>if('serviceWorker' in navigator)addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}))</script></body></html>
