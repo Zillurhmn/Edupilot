@@ -88,6 +88,7 @@ ${inv.notes&&html`<div className="mt-2"><b>Terms & Conditions</b><div style=${{w
 function App(){
 const [logo,setLogo]=useState(()=>ls.get('edu_logo',''));
 const [brand,setBrand]=useState(BRAND);BRAND=brand;const [tab,setTab]=useState('dash'),[pane,setPane]=useState('edit');const go=(t,p)=>{setTab(t);if(p)setPane(p);window.scrollTo(0,0)};
+const [ip,setIp]=useState(null);useEffect(()=>{const f=e=>{e.preventDefault();setIp(e)};addEventListener('beforeinstallprompt',f);return()=>removeEventListener('beforeinstallprompt',f)},[]);
 const sb=(k,v)=>{const old=brand.account,b={...brand,[k]:v};BRAND=b;setBrand(b);ls.set('edu_brand',b);const saved=p=>list.some(a=>a.id===p.id);if(k==='name')setInv(p=>saved(p)?p:{...p,no:genNo()});if(k==='account')setInv(p=>!saved(p)&&p.method===old?{...p,method:v}:p)};
 const [list,setList]=useState(()=>ls.get('edu_invoices',[]));
 const [inv,setInv]=useState(()=>ls.get('edu_draft',null)||newInv());
@@ -208,6 +209,7 @@ ${tab==='set'&&html`<div className="space-y-4 max-w-2xl"><h1 className="text-xl 
 <${Field} label="Tagline (shown under the name on invoices)"><input className="in" value=${brand.tagline} onChange=${e=>sb('tagline',e.target.value)}/><//>
 <${Field} label="My payment account (fills every new invoice)"><textarea className="in" rows="3" placeholder="e.g. bKash (Personal): 01XXXXXXXXX" value=${brand.account} onChange=${e=>sb('account',e.target.value)}/><//>
 <p className="mu text-sm">Changes save automatically.</p></section>
+<section className="card p-4 space-y-2"><h2 className="font-semibold ac">Install on phone</h2>${matchMedia('(display-mode: standalone)').matches?html`<p className="text-sm">This app is installed on this device.</p>`:ip?html`<button className="btn btn-p" onClick=${()=>{ip.prompt();setIp(null)}}>Install app</button>`:html`<p className="mu text-sm">Android Chrome: menu (⋮) → Install app. iPhone Safari: Share → Add to Home Screen. This only works when the app is opened from its own https link, not from inside Claude.</p>`}</section>
 <section className="card p-4 space-y-3"><h2 className="font-semibold ac">Backup</h2><p className="mu text-sm">Your data is stored on this device only. Download a backup to restore it on another phone or after clearing browser data.</p><div className="flex flex-wrap gap-2"><button className="btn" onClick=${exp}>Download backup</button><label className="btn cursor-pointer">Restore backup<input type="file" accept=".json,application/json" className="hidden" onChange=${imp}/></label></div></section></div>`}</main>
 
 ${view&&html`<${Modal} wide onClose=${()=>setView(null)}><div className="flex justify-between mb-3"><b>${view.no}</b><div className="flex gap-2"><button className="btn btn-p" onClick=${()=>setPdfInv(view)}>Download PDF</button><button className="btn" onClick=${()=>setView(null)}>Close</button></div></div><${Fit}><${Invoice} inv=${view} id="vw" logo=${logo}/><//><//>`}
