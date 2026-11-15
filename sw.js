@@ -1,4 +1,4 @@
-const C='edupilot-v8';
+const C='edupilot-v11';
 const CORE=['./','./manifest.json','./icon-192.png','./icon-512.png'];
 const CDN=['https://cdn.tailwindcss.com/3.4.17','https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js','https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js','https://cdn.jsdelivr.net/npm/htm@3.1.1/dist/htm.umd.js','https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js','https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js','https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(C).then(async c=>{await Promise.all(CORE.map(u=>c.add(u).catch(()=>{})));await Promise.all(CDN.map(u=>c.add(new Request(u,{mode:'no-cors'})).catch(()=>{})))}).then(()=>self.skipWaiting()))});
